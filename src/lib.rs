@@ -1,5 +1,12 @@
+use macroquad::prelude::*;
 use ndarray::*;
+
 pub mod lbmcore;
+pub mod render;
+
+// sources
+// https://github.com/ndbaker1/bloe
+// https://github.com/jviquerat/lbm/
 
 // TODO: parallelize with rayon https://web.dev/webassembly-threads/
 // TODO: check correctenss
@@ -38,12 +45,127 @@ fn set_inlets(
     }
 }
 
-pub fn run_main_ndarray() {
-    use std::time::Instant;
-    use std::collections::HashMap;
+pub struct Lattice {
+    u_lbm: f64,
+    sigma: f64,
+    rho_lbm: f64,
+    om_p_lbm: f64,
+    om_m_lbm: f64,
 
-    let start_time = Instant::now();
+    lx: usize,
+    ly: usize,
+    pub it_max: usize,
 
+    // # Density arrays
+    g: Array3<f64>,
+    g_eq: Array3<f64>,
+    g_up: Array3<f64>,
+
+    // # Boundary conditions
+    u_left: Array2<f64>,
+    u_right: Array2<f64>,
+    u_top: Array2<f64>,
+    u_bot: Array2<f64>,
+
+    // # Physical fields
+    pub rho: Array2<f64>,
+    pub u: Array3<f64>,
+}
+
+pub fn init_lattice(lattice: &mut Lattice) {
+    // Initialize and compute first equilibrium
+    set_inlets(
+        lattice.sigma,
+        lattice.u_lbm,
+        0,
+        &mut lattice.u_top,
+        &mut lattice.u_bot,
+        &mut lattice.u_left,
+        &mut lattice.u_right,
+    );
+    lattice.rho *= lattice.rho_lbm;
+    lbmcore::lattice::compute_equilibrium(&lattice.u, &lattice.rho, &mut lattice.g_eq);
+    lattice.g.assign(&lattice.g_eq);
+}
+
+pub fn step_lattice(lattice: &mut Lattice, it: usize) {
+    set_inlets(
+        lattice.sigma,
+        lattice.u_lbm,
+        it,
+        &mut lattice.u_top,
+        &mut lattice.u_bot,
+        &mut lattice.u_left,
+        &mut lattice.u_right,
+    );
+    // 2. Compute macroscopic fields
+    lbmcore::lattice::compute_macroscopic(&mut lattice.rho, &lattice.g, &mut lattice.u);
+    // 4. Compute equilibrium state
+    lbmcore::lattice::compute_equilibrium(&lattice.u, &lattice.rho, &mut lattice.g_eq);
+    // 5. Streaming
+    lbmcore::lattice::collision_and_streaming(
+        &mut lattice.g,
+        &lattice.g_eq,
+        &mut lattice.g_up,
+        lattice.om_p_lbm,
+        lattice.om_m_lbm,
+        lattice.lx,
+        lattice.ly,
+    );
+    // 6. Boundary conditions
+    lbmcore::boundary_conditions::zou_he_bottom_wall_velocity(
+        &mut lattice.u,
+        &lattice.u_bot,
+        &mut lattice.rho,
+        &mut lattice.g,
+    );
+    lbmcore::boundary_conditions::zou_he_left_wall_velocity(
+        &mut lattice.u,
+        &lattice.u_left,
+        &mut lattice.rho,
+        &mut lattice.g,
+    );
+    lbmcore::boundary_conditions::zou_he_right_wall_velocity(
+        lattice.lx,
+        &mut lattice.u,
+        &lattice.u_right,
+        &mut lattice.rho,
+        &mut lattice.g,
+    );
+    lbmcore::boundary_conditions::zou_he_top_wall_velocity(
+        lattice.ly,
+        &mut lattice.u,
+        &lattice.u_top,
+        &mut lattice.rho,
+        &mut lattice.g,
+    );
+    lbmcore::boundary_conditions::zou_he_bottom_left_corner_velocity(
+        &mut lattice.u,
+        &mut lattice.rho,
+        &mut lattice.g,
+    );
+    lbmcore::boundary_conditions::zou_he_top_left_corner_velocity(
+        lattice.ly,
+        &mut lattice.u,
+        &mut lattice.rho,
+        &mut lattice.g,
+    );
+    lbmcore::boundary_conditions::zou_he_top_right_corner_velocity(
+        lattice.lx,
+        lattice.ly,
+        &mut lattice.u,
+        &mut lattice.rho,
+        &mut lattice.g,
+    );
+    lbmcore::boundary_conditions::zou_he_bottom_right_corner_velocity(
+        lattice.lx,
+        &mut lattice.u,
+        &mut lattice.rho,
+        &mut lattice.g,
+    );
+}
+
+pub fn get_cavity_lattice() -> Lattice {
     let re_lbm: f64 = 100.0;
     let npts: usize = 100;
     let u_lbm: f64 = 0.2;
@@ -66,7 +188,6 @@ pub fn run_main_ndarray() {
 
     let lx: usize = nx - 1;
     let ly: usize = ny - 1;
-    const Q: usize = 9;
 
     let tau_p_lbm: f64 = tau_lbm;
     let lambda_trt: f64 = 1.0 / 4.0; // Best for stability
@@ -75,117 +196,49 @@ pub fn run_main_ndarray() {
     let om_m_lbm: f64 = 1.0 / tau_m_lbm;
     //let om_lbm: f64 = 1.0 / tau_lbm;
 
-    // # D2Q9 Velocities
-    let c = arr2(&[
-        [0., 0.],
-        [1., 0.],
-        [-1., 0.],
-        [0., 1.],
-        [0., -1.],
-        [1., 1.],
-        [-1., -1.],
-        [-1., 1.],
-        [1., -1.],
-    ]);
+    return Lattice {
+        u_lbm: u_lbm,
+        sigma: sigma,
+        rho_lbm: rho_lbm,
+        om_p_lbm: om_p_lbm,
+        om_m_lbm: om_m_lbm,
 
-    // # Weights
-    let w = arr1(&[
-        4. / 9.,
-        1. / 9.,
-        1. / 9.,
-        1. / 9.,
-        1. / 9.,
-        1. / 36.,
-        1. / 36.,
-        1. / 36.,
-        1. / 36.,
-    ]);
+        lx: lx,
+        ly: ly,
+        it_max: it_max,
 
-    // # Array for bounce-back
-    let ns = arr1(&[0usize, 2, 1, 4, 3, 6, 5, 8, 7]);
+        // # Density arrays
+        g: Array3::<f64>::zeros((lbmcore::constants::Q, nx, ny)),
+        g_eq: Array3::<f64>::zeros((lbmcore::constants::Q, nx, ny)),
+        g_up: Array3::<f64>::zeros((lbmcore::constants::Q, nx, ny)),
 
-    // # Density arrays
-    let mut g = Array3::<f64>::zeros((Q, nx, ny));
-    let mut g_eq = Array3::<f64>::zeros((Q, nx, ny));
-    let mut g_up = Array3::<f64>::zeros((Q, nx, ny));
+        // # Boundary conditions
+        u_left: Array2::<f64>::zeros((2, ny)),
+        u_right: Array2::<f64>::zeros((2, ny)),
+        u_top: Array2::<f64>::zeros((2, nx)),
+        u_bot: Array2::<f64>::zeros((2, nx)),
 
-    // # Boundary conditions
-    let mut u_left = Array2::<f64>::zeros((2, ny));
-    let mut u_right = Array2::<f64>::zeros((2, ny));
-    let mut u_top = Array2::<f64>::zeros((2, nx));
-    let mut u_bot = Array2::<f64>::zeros((2, nx));
+        // # Physical fields
+        rho: Array2::<f64>::ones((nx, ny)),
+        u: Array3::<f64>::zeros((2, nx, ny)),
+    };
+}
 
-    // # Physical fields
-    let mut rho = Array2::<f64>::ones((nx, ny));
-    let mut u = Array3::<f64>::zeros((2, nx, ny));
+pub fn run_main_ndarray() {
+    use std::time::Instant;
 
-    // Initialize and compute first equilibrium
-    set_inlets(
-        sigma,
-        u_lbm,
-        0,
-        &mut u_top,
-        &mut u_bot,
-        &mut u_left,
-        &mut u_right,
-    );
-    rho *= rho_lbm;
-    lbmcore::lattice::compute_equilibrium(&u, &c, &w, &rho, &mut g_eq);
-    g.assign(&g_eq);
+    let start_time = Instant::now();
 
+    let mut _lattice = get_cavity_lattice();
+    init_lattice(&mut _lattice);
 
-    let mut profiler = HashMap::new();
-    
-    for it in 0..it_max {
+    for it in 0.._lattice.it_max {
         if it % 100 == 0 {
-            println!("Iteration: {:>6}/{}", it, it_max);
+            println!("Iteration: {:>6}/{}", it, _lattice.it_max);
         }
-        // 1. Set inlets
-        let t0 = Instant::now();
-        set_inlets(
-            sigma,
-            u_lbm,
-            0,
-            &mut u_top,
-            &mut u_bot,
-            &mut u_left,
-            &mut u_right,
-        );
-        profiler.entry("set_inlets").and_modify(|x| *x += t0.elapsed().as_secs_f64()).or_insert(0.0);
-        // 2. Compute macroscopic fields
-        let t0 = Instant::now();
-        lbmcore::lattice::compute_macroscopic(&mut rho, &g, &mut u, &c);
-        profiler.entry("compute_macroscopic").and_modify(|x| *x += t0.elapsed().as_secs_f64()).or_insert(0.0);
-        // TBD. Output field
-        // 4. Compute equilibrium state
-        let t0 = Instant::now();
-        lbmcore::lattice::compute_equilibrium(&u, &c, &w, &rho, &mut g_eq);
-        profiler.entry("compute_equilibrium").and_modify(|x| *x += t0.elapsed().as_secs_f64()).or_insert(0.0);
-        // 5. Streaming
-        let t0 = Instant::now();
-        lbmcore::lattice::collision_and_streaming(
-            &mut g, &g_eq, &mut g_up, om_p_lbm, om_m_lbm, &ns, lx, ly,
-        );
-        profiler.entry("collision_and_streaming").and_modify(|x| *x += t0.elapsed().as_secs_f64()).or_insert(0.0);
-        // 6. Boundary conditions
-        let t0 = Instant::now();
-        lbmcore::boundary_conditions::zou_he_bottom_wall_velocity(&mut u, &u_bot, &mut rho, &mut g);
-        lbmcore::boundary_conditions::zou_he_left_wall_velocity(&mut u, &u_left, &mut rho, &mut g);
-        lbmcore::boundary_conditions::zou_he_right_wall_velocity(lx, &mut u, &u_right, &mut rho, &mut g);
-        lbmcore::boundary_conditions::zou_he_top_wall_velocity(ly, &mut u, &u_top, &mut rho, &mut g);
-        lbmcore::boundary_conditions::zou_he_bottom_left_corner_velocity(&mut u, &mut rho, &mut g);
-        lbmcore::boundary_conditions::zou_he_top_left_corner_velocity(ly, &mut u, &mut rho, &mut g);
-        lbmcore::boundary_conditions::zou_he_top_right_corner_velocity(lx, ly, &mut u, &mut rho, &mut g);
-        lbmcore::boundary_conditions::zou_he_bottom_right_corner_velocity(lx, &mut u, &mut rho, &mut g);
-        profiler.entry("boundary_conditions").and_modify(|x| *x += t0.elapsed().as_secs_f64()).or_insert(0.0);
-        // TBD: Compute observables (drag, lift, etc)
+        step_lattice(&mut _lattice, it);
     }
 
     let elapsed = start_time.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
-    for (key, value) in &profiler {
-        println!("{:>25}: {}", key, value);
-    }
 }
-
-// https://github.com/ndbaker1/bloe

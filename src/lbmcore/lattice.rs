@@ -1,9 +1,9 @@
 use ndarray::*;
 
+use super::constants;
+
 pub fn compute_equilibrium(
     u: &Array3<f64>,
-    c: &Array2<f64>,
-    w: &Array1<f64>,
     rho: &Array2<f64>,
     g_eq: &mut Array3<f64>,
 ) {
@@ -11,8 +11,8 @@ pub fn compute_equilibrium(
         for i in 0..u.shape()[1] {
             for j in 0..u.shape()[2] {
                 let v = 1.5 * (u[[0, i, j]] * u[[0, i, j]] + u[[1, i, j]] * u[[1, i, j]]);
-                let t = 3.0 * (u[[0, i, j]] * c[[q, 0]] + u[[1, i, j]] * c[[q, 1]]);
-                g_eq[[q, i, j]] = (1.0 + t + 0.5 * t * t - v) * rho[[i, j]] * w[q];
+                let t = 3.0 * (u[[0, i, j]] * constants::CX[q] + u[[1, i, j]] * constants::CY[q]);
+                g_eq[[q, i, j]] = (1.0 + t + 0.5 * t * t - v) * rho[[i, j]] * constants::W[q];
             }
         }
     }
@@ -24,7 +24,6 @@ pub fn collision_and_streaming(
     g_up: &mut Array3<f64>,
     om_p: f64,
     om_m: f64,
-    ns: &Array1<usize>,
     lx: usize,
     ly: usize,
 ) {
@@ -38,7 +37,7 @@ pub fn collision_and_streaming(
 
     // Collide other indices
     for q in 1..9 {
-        let qb = ns[q];
+        let qb = constants::NS[q];
         for i in 0..g.shape()[1] {
             for j in 0..g.shape()[2] {
                 g_up[[q, i, j]] = (1.0 - 0.5 * (om_p + om_m)) * g[[q, i, j]]
@@ -78,7 +77,6 @@ pub fn compute_macroscopic(
     rho: &mut Array2<f64>,
     g: &Array3<f64>,
     u: &mut Array3<f64>,
-    c: &Array2<f64>,
 ) {
     // TODO: rewrite with cache alignment
     for i in 0..rho.shape()[0] {
@@ -88,11 +86,35 @@ pub fn compute_macroscopic(
             u[[1, i, j]] = 0.0;
             for q in 0..g.shape()[0] {
                 rho[[i, j]] += g[[q, i, j]];
-                u[[0, i, j]] += c[[q, 0]] * g[[q, i, j]];
-                u[[1, i, j]] += c[[q, 1]] * g[[q, i, j]];
+                u[[0, i, j]] += constants::CX[q] * g[[q, i, j]];
+                u[[1, i, j]] += constants::CY[q] * g[[q, i, j]];
             }
             u[[0, i, j]] /= rho[[i, j]];
             u[[1, i, j]] /= rho[[i, j]];
         }
     }
+
+
+    // rho.par_map_inplace(|x| *x = 0.0);
+    // u.par_map_inplace(|x| *x = 0.0);
+
+    // for i in 0..g.shape()[1] {
+    //     rho.index_axis_mut(Axis(0), i)
+    //         .assign::<ndarray::Dim<[usize; 1]>, OwnedRepr<f64>>(
+    //             &g.slice(s![.., i, ..])
+    //                 .axis_iter(Axis(1))
+    //                 .into_iter()
+    //                 .map(|row| row.sum())
+    //                 .collect::<Vec<f64>>()
+    //                 .into()
+    //         );
+    // }
+
+    // for dim in 0..2{
+    //     Zip::from(u.index_axis_mut(Axis(0), dim))
+    //         .and(&mut *rho) // fresh reborrow to avoid move
+    //         .par_for_each(|u_elem, rho_elem| {
+    //             *u_elem /= *rho_elem;
+    //         });
+    // }
 }
