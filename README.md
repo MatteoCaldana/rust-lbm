@@ -1,11 +1,13 @@
 
 # Lattice Boltzmann method in Rust with WASM translation
+![Rust badge](https://github.com/MatteoCaldana/rust-lbm/workflows/RustCavityBenchmark/badge.svg)
 
 <!-- <h3 align="center">
 	<a href="https://matteocaldana.github.io/rust-lbm/">
 		Online Demo ☁
 	</a>
 </h2> -->
+
 
 ## Usage
 
@@ -26,12 +28,16 @@ cargo test --release
 
 ### WASM
 To translate the code to WASM follow the [Macroquad instructions](https://github.com/not-fl3/macroquad#wasm)
-```
+```bash
 rustup target add wasm32-unknown-unknown
-cargo build --target wasm32-unknown-unknown
+cargo build --target wasm32-unknown-unknown --release
 ```
-This will produce `.wasm` file in `target/debug/wasm32-unknown-unknown/CRATENAME.wasm` or in `target/release/wasm32-unknown-unknown/CRATENAME.wasm` if built with `--release`. One of the ways to then server static `.wasm` and `.html` (blocked by CORS otherwise):
+This will produce `.wasm` file in `target/debug/wasm32-unknown-unknown/main.wasm` or in `target/release/wasm32-unknown-unknown/main.wasm` if built with `--release`. Copy it into the `pages` folder.
+```bash
+cp target/release/wasm32-unknown-unknown/main.wasm pages
 ```
+One of the ways to then server static `.wasm` and `.html` (blocked by CORS otherwise):
+```bash
 cargo install basic-http-server
 cd pages
 basic-http-server .
