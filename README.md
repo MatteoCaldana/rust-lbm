@@ -1,12 +1,13 @@
 
 # Lattice Boltzmann method in Rust with WASM translation
-![Rust badge](https://github.com/MatteoCaldana/rust-lbm/workflows/RustCavityBenchmark/badge.svg)
+![RustCavityBenchmark badge](https://github.com/MatteoCaldana/rust-lbm/workflows/RustCavityBenchmark/badge.svg)
+![DeployWASM badge](https://github.com/MatteoCaldana/rust-lbm/workflows/DeployWASM/badge.svg)
 
-<!-- <h3 align="center">
+<h3 align="center">
 	<a href="https://matteocaldana.github.io/rust-lbm/">
 		Online Demo ☁
 	</a>
-</h2> -->
+</h2>
 
 
 ## Usage
