@@ -2,6 +2,33 @@ use ndarray::*;
 
 use super::constants;
 
+pub struct Lattice {
+    pub u_lbm: f64,
+    pub sigma: f64,
+    pub rho_lbm: f64,
+    pub om_p_lbm: f64,
+    pub om_m_lbm: f64,
+
+    pub lx: usize,
+    pub ly: usize,
+    pub it_max: usize,
+
+    // # Density arrays
+    pub g: Array3<f64>,
+    pub g_eq: Array3<f64>,
+    pub g_up: Array3<f64>,
+
+    // # Boundary conditions
+    pub u_left: Array2<f64>,
+    pub u_right: Array2<f64>,
+    pub u_top: Array2<f64>,
+    pub u_bot: Array2<f64>,
+
+    // # Physical fields
+    pub rho: Array2<f64>,
+    pub u: Array3<f64>,
+}
+
 pub fn compute_equilibrium(
     u: &Array3<f64>,
     rho: &Array2<f64>,

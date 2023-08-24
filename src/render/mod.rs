@@ -1,7 +1,8 @@
 use macroquad::prelude::*;
 use ndarray::*;
+use std::fmt;
 
-use super::Lattice;
+use crate::lbmcore::lattice;
 
 
 #[allow(dead_code)]
@@ -11,6 +12,18 @@ pub enum Plot {
     VelocityY,
     VelocityNorm,
     Vorticity,
+}
+
+impl fmt::Display for Plot {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Plot::Density => write!(f, "Density"),
+            Plot::VelocityX => write!(f, "VelocityX"),
+            Plot::VelocityY => write!(f, "VelocityY"),
+            Plot::VelocityNorm => write!(f, "VelocityNorm"),
+            Plot::Vorticity => write!(f, "Vorticity"),
+        }
+    }
 }
 
 pub struct RenderSettings {
@@ -100,7 +113,7 @@ fn draw_field<T: ndarray::RawData<Elem = f64> + ndarray::Data>(
 }
 
 
-pub fn draw_lattice(lattice: &Lattice, settings: &RenderSettings) {
+pub fn draw_lattice(lattice: &lattice::Lattice, settings: &RenderSettings) {
     if let Plot::VelocityX = settings.plot_mode{
         draw_field(&lattice.u.index_axis(ndarray::Axis(0), 0));
     } else if let Plot::VelocityY = settings.plot_mode{ 
@@ -127,10 +140,17 @@ pub fn draw_lattice(lattice: &Lattice, settings: &RenderSettings) {
     }
 }
 
-pub fn draw_info(it: usize, settings: &RenderSettings) {    
+pub fn draw_info(it: usize, settings: &RenderSettings) {  
+    const FONT_SIZE: f32 = 25.;  
     if settings.show_info {
-        draw_text("C to toggle commands. R to restart.", 0., 50.,25.,RED);
-        draw_text(&format!("Iteration: {:>6}", it), 0.,25.,25.,RED);
-        draw_text(&format!("Iter/frame {}", settings.iter_per_frame), 0., 75.,25.,RED);
+        let infos = [
+            "C to toggle commands. R to restart.",
+            &format!("Iteration: {:>6}", it),
+            &format!("Iter/frame {} (Up/Down to change)", settings.iter_per_frame),
+            &format!("Showing {} ([D]ensity, Velocity[X]/[Y]/[N]orm, [W]orticity)", settings.plot_mode),
+        ];
+        for i in 0..infos.len() {
+            draw_text(infos[i], 0., (i + 1) as f32 * FONT_SIZE, FONT_SIZE,RED);
+        }
     }
 }

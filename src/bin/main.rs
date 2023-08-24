@@ -11,19 +11,19 @@ async fn main() {
         should_restart: true
     };
 
-    let mut lattice = rust_lbm::get_cavity_lattice();
+    let mut lattice = rust_lbm::lbmcore::cavity::get_lattice();
     let mut it: usize = 0;
     loop {
         rust_lbm::render::handle_event(&mut render_settings);
 
         if render_settings.should_restart {
-            lattice = rust_lbm::get_cavity_lattice();
-            rust_lbm::init_lattice(&mut lattice);
+            lattice = rust_lbm::lbmcore::cavity::get_lattice();
+            rust_lbm::lbmcore::cavity::init_lattice(&mut lattice);
             it = 0;
             render_settings.should_restart = false;
         }
         for _ in 0..render_settings.iter_per_frame {
-            rust_lbm::step_lattice(&mut lattice, it);
+            rust_lbm::lbmcore::cavity::step_lattice(&mut lattice, it);
             it = it + 1;
         }
         rust_lbm::render::draw_lattice(&lattice, &render_settings);
