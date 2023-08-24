@@ -58,12 +58,13 @@ pub fn handle_event(render_settings: &mut RenderSettings) {
         render_settings.plot_mode = Plot::Density;
     }
     //
+    const FRAME_DELTA: usize = 5;
     if is_key_pressed(KeyCode::Up) {
-        render_settings.iter_per_frame = render_settings.iter_per_frame + 1;
+        render_settings.iter_per_frame = render_settings.iter_per_frame + FRAME_DELTA;
     }
     if is_key_pressed(KeyCode::Down) {
-        if render_settings.iter_per_frame > 0 {
-            render_settings.iter_per_frame = render_settings.iter_per_frame - 1;
+        if render_settings.iter_per_frame > FRAME_DELTA {
+            render_settings.iter_per_frame = render_settings.iter_per_frame - FRAME_DELTA;
         }
     }
     //
@@ -144,9 +145,9 @@ pub fn draw_info(it: usize, settings: &RenderSettings) {
     const FONT_SIZE: f32 = 25.;  
     if settings.show_info {
         let infos = [
-            "C to toggle commands. R to restart.",
-            &format!("Iteration: {:>6}", it),
-            &format!("Iter/frame {} (Up/Down to change)", settings.iter_per_frame),
+            "Toggle [C]ommands. [R]estart.",
+            &format!("Iteration: {:>6}, FPS: {:>3}", it, get_fps()),
+            &format!("Iter/frame {} ([Up]/[Down] to change)", settings.iter_per_frame),
             &format!("Showing {} ([D]ensity, Velocity[X]/[Y]/[N]orm, [W]orticity)", settings.plot_mode),
         ];
         for i in 0..infos.len() {

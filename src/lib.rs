@@ -2,10 +2,6 @@ pub mod lbmcore;
 pub mod render;
 pub mod tests;
 
-// sources
-// https://github.com/ndbaker1/bloe
-// https://github.com/jviquerat/lbm/
-
 // TODO: parallelize with rayon https://web.dev/webassembly-threads/
 // TODO: check correctenss
 
@@ -23,23 +19,4 @@ pub mod tests;
 //         }
 //     }
 //     return (xx, yy);
-// }
-
-// pub fn run_main_ndarray() {
-//     use std::time::Instant;
-
-//     let start_time = Instant::now();
-
-//     let mut _lattice = get_cavity_lattice();
-//     init_lattice(&mut _lattice);
-
-//     for it in 0.._lattice.it_max {
-//         if it % 100 == 0 {
-//             println!("Iteration: {:>6}/{}", it, _lattice.it_max);
-//         }
-//         step_lattice(&mut _lattice, it);
-//     }
-
-//     let elapsed = start_time.elapsed();
-//     println!("Elapsed: {:.2?}", elapsed);
 // }
