@@ -23,7 +23,6 @@ fn set_inlets(
 }
 
 
-
 pub fn init_lattice(lattice: &mut lattice::Lattice) {
     // Initialize and compute first equilibrium
     set_inlets(
@@ -132,9 +131,9 @@ pub fn get_lattice() -> lattice::Lattice {
     let nu_lbm: f64 = u_lbm * (npts as f64) / re_lbm;
     let tau_lbm: f64 = 0.5 + nu_lbm / (c_s * c_s);
     let dt: f64 = re_lbm * nu_lbm / ((npts * npts) as f64);
-    //let dx: f64 = (y_max - y_min) / (ny as f64);
-    //let dy: f64 = dx;
+    let dy: f64 = (y_max - y_min) / ((ny - 1) as f64);
     let nx: usize = f64::round((ny as f64) * (x_max - x_min) / (y_max - y_min)) as usize;
+    let dx: f64 = (x_max - x_min) / ((nx - 1) as f64);
     let it_max: usize = f64::round(t_max / dt) as usize;
     let sigma: f64 = 10.0 * (nx as f64);
 
@@ -155,10 +154,22 @@ pub fn get_lattice() -> lattice::Lattice {
         om_p_lbm: om_p_lbm,
         om_m_lbm: om_m_lbm,
 
+        nx: nx,
+        ny: ny,
+
+        x_min: x_min,
+        x_max: x_max,
+        y_min: y_min,
+        y_max: y_max,
+
+        dx: dx,
+        dy: dy,
+
         lx: lx,
         ly: ly,
         it_max: it_max,
 
+        tag: Array2::<u8>::zeros((nx, ny)),
         // # Density arrays
         g: Array3::<f64>::zeros((constants::Q, nx, ny)),
         g_eq: Array3::<f64>::zeros((constants::Q, nx, ny)),

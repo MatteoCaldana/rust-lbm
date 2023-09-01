@@ -51,6 +51,13 @@ In this small project I had the opportuninty to learn about
 * WASM: a binary instruction format that, albeit some penalty, makes it possible to run performance critical code in a web browser.
 * LBM: an application of Boltzmann particle (microscopic) principles in a lattice grid to simulate computation fluid dynamics (CFD) without directly solving the Navier-Stokes equations.
 
+### Possible Extensions
+Add (experimental) WASM features:
+* Use SIMD instructions
+* Parition the lattice and use threads to parallelize (spawing a thread is very expensive in WASM, must be done carefully)
+Extend LBM:
+* Flow around cylinder: need support for shapes, compute lift and drag
+
 ## References
 * https://github.com/ndbaker1/bloe
 * https://github.com/jviquerat/lbm

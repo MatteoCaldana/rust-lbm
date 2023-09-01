@@ -1,6 +1,7 @@
 pub mod lbmcore;
 pub mod render;
 pub mod tests;
+pub mod geometry;
 
 // TODO: parallelize with rayon https://web.dev/webassembly-threads/
 // TODO: check correctenss

@@ -9,9 +9,23 @@ pub struct Lattice {
     pub om_p_lbm: f64,
     pub om_m_lbm: f64,
 
+    pub nx: usize,
+    pub ny: usize,
+
+    pub x_min: f64,
+    pub x_max: f64,
+    pub y_min: f64,
+    pub y_max: f64,
+
+    pub dx: f64,
+    pub dy: f64,
+
     pub lx: usize,
     pub ly: usize,
     pub it_max: usize,
+
+    // shape tag
+    pub tag: Array2<u8>,
 
     // # Density arrays
     pub g: Array3<f64>,
@@ -29,11 +43,7 @@ pub struct Lattice {
     pub u: Array3<f64>,
 }
 
-pub fn compute_equilibrium(
-    u: &Array3<f64>,
-    rho: &Array2<f64>,
-    g_eq: &mut Array3<f64>,
-) {
+pub fn compute_equilibrium(u: &Array3<f64>, rho: &Array2<f64>, g_eq: &mut Array3<f64>) {
     for q in 0..9 {
         for i in 0..u.shape()[1] {
             for j in 0..u.shape()[2] {
@@ -100,11 +110,7 @@ pub fn collision_and_streaming(
     }
 }
 
-pub fn compute_macroscopic(
-    rho: &mut Array2<f64>,
-    g: &Array3<f64>,
-    u: &mut Array3<f64>,
-) {
+pub fn compute_macroscopic(rho: &mut Array2<f64>, g: &Array3<f64>, u: &mut Array3<f64>) {
     // TODO: rewrite with cache alignment
     for i in 0..rho.shape()[0] {
         for j in 0..rho.shape()[1] {
@@ -120,28 +126,69 @@ pub fn compute_macroscopic(
             u[[1, i, j]] /= rho[[i, j]];
         }
     }
+}
 
+pub fn compute_drag_lift(
+    boundary: &Vec<[usize; 3]>,
+    g_up: &Array3<f64>,
+    g: &Array3<f64>,
+    r_ref: f64,
+    u_ref: f64,
+    l_ref: f64,
+) -> (f64, f64) {
+    let mut fx = 0.0;
+    let mut fy = 0.0;
 
-    // rho.par_map_inplace(|x| *x = 0.0);
-    // u.par_map_inplace(|x| *x = 0.0);
+    for k in 0..boundary.len() {
+        let i = boundary[k][0];
+        let j = boundary[k][1];
+        let q = boundary[k][2];
+        let qb = constants::NS[q];
+        let g0 = g_up[[q, i, j]] + g[[qb, i, j]];
+        fx += g0 * constants::CX[q];
+        fy += g0 * constants::CY[q];
+    }
 
-    // for i in 0..g.shape()[1] {
-    //     rho.index_axis_mut(Axis(0), i)
-    //         .assign::<ndarray::Dim<[usize; 1]>, OwnedRepr<f64>>(
-    //             &g.slice(s![.., i, ..])
-    //                 .axis_iter(Axis(1))
-    //                 .into_iter()
-    //                 .map(|row| row.sum())
-    //                 .collect::<Vec<f64>>()
-    //                 .into()
-    //         );
-    // }
+    let rescale = -2.0 / (r_ref * l_ref * u_ref * u_ref);
+    fx *= rescale;
+    fy *= rescale;
 
-    // for dim in 0..2{
-    //     Zip::from(u.index_axis_mut(Axis(0), dim))
-    //         .and(&mut *rho) // fresh reborrow to avoid move
-    //         .par_for_each(|u_elem, rho_elem| {
-    //             *u_elem /= *rho_elem;
-    //         });
-    // }
+    return (fx, fy);
+}
+
+fn bounce_back_obstacle(
+    boundary: &Vec<[usize; 3]>,
+    ibb: &Vec<f64>,
+    g_up: &Array3<f64>,
+    g: &mut Array3<f64>,
+    u: &Array3<f64>,
+    tag: &Array2<u8>,
+) {
+    for k in 0..boundary.len() {
+        let i = boundary[k][0];
+        let j = boundary[k][1];
+        let ii32 = boundary[k][0] as i32;
+        let ji32 = boundary[k][1] as i32;
+        let q = boundary[k][2];
+        let qb = constants::NS[q];
+
+        let cbx = constants::CX[qb] as i32;
+        let cby = constants::CY[qb] as i32;
+        let im = (ii32 + cbx) as usize;
+        let jm = (ji32 + cby) as usize;
+        let imm = (ii32 + 2 * cbx) as usize;
+        let jmm = (ji32 + 2 * cby) as usize;
+
+        let p = ibb[k];
+        let pp = 2.0 * p;
+        if p < 0.5 {
+            g[[qb, i, j]] = p * (pp + 1.0) * g_up[[q, i, j]]
+                + (1.0 + pp) * (1.0 - pp) * g_up[[q, im, jm]]
+                - p * (1.0 - pp) * g_up[[q, imm, jmm]];
+        } else {
+            g[[qb, i, j]] = (1.0 / (p * (pp + 1.0))) * g_up[[q, i, j]]
+                + ((pp - 1.0) / p) * g_up[[qb, i, j]]
+                + ((1.0 - pp) / (1.0 + pp)) * g_up[[qb, im, jm]];
+        }
+    }
 }
