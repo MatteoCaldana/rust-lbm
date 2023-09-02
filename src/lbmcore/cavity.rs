@@ -4,66 +4,20 @@ use super::boundary_conditions;
 
 use ndarray::*;
 
-fn set_inlets(
-    sigma: f64,
-    u_lbm: f64,
+pub fn set_inlets(
+    lattice: &mut lattice::Lattice,
     it: usize,
-    u_top: &mut Array2<f64>,
-    u_bot: &mut Array2<f64>,
-    u_left: &mut Array2<f64>,
-    u_right: &mut Array2<f64>,
 ) {
-    let ret: f64 = 1.0 - f64::exp(-((it * it) as f64) / (2.0 * sigma * sigma));
-    for i in 0..u_top.shape()[1] {
-        u_top[[0, i]] = u_lbm * ret;
-        u_bot[[0, i]] = 0.0;
-        u_left[[1, i]] = 0.0;
-        u_right[[1, i]] = 0.0;
+    let ret: f64 = 1.0 - f64::exp(-((it * it) as f64) / (2.0 * lattice.sigma * lattice.sigma));
+    for i in 0..lattice.u_top.shape()[1] {
+        lattice.u_top[[0, i]] = lattice.u_lbm * ret;
+        lattice.u_bot[[0, i]] = 0.0;
+        lattice.u_left[[1, i]] = 0.0;
+        lattice.u_right[[1, i]] = 0.0;
     }
 }
 
-
-pub fn init_lattice(lattice: &mut lattice::Lattice) {
-    // Initialize and compute first equilibrium
-    set_inlets(
-        lattice.sigma,
-        lattice.u_lbm,
-        0,
-        &mut lattice.u_top,
-        &mut lattice.u_bot,
-        &mut lattice.u_left,
-        &mut lattice.u_right,
-    );
-    lattice.rho *= lattice.rho_lbm;
-    lattice::compute_equilibrium(&lattice.u, &lattice.rho, &mut lattice.g_eq);
-    lattice.g.assign(&lattice.g_eq);
-}
-
-pub fn step_lattice(lattice: &mut lattice::Lattice, it: usize) {
-    set_inlets(
-        lattice.sigma,
-        lattice.u_lbm,
-        it,
-        &mut lattice.u_top,
-        &mut lattice.u_bot,
-        &mut lattice.u_left,
-        &mut lattice.u_right,
-    );
-    // 2. Compute macroscopic fields
-    lattice::compute_macroscopic(&mut lattice.rho, &lattice.g, &mut lattice.u);
-    // 4. Compute equilibrium state
-    lattice::compute_equilibrium(&lattice.u, &lattice.rho, &mut lattice.g_eq);
-    // 5. Streaming
-    lattice::collision_and_streaming(
-        &mut lattice.g,
-        &lattice.g_eq,
-        &mut lattice.g_up,
-        lattice.om_p_lbm,
-        lattice.om_m_lbm,
-        lattice.lx,
-        lattice.ly,
-    );
-    // 6. Boundary conditions
+pub fn apply_bc(lattice: &mut lattice::Lattice) {
     boundary_conditions::zou_he_bottom_wall_velocity(
         &mut lattice.u,
         &lattice.u_bot,
@@ -170,6 +124,9 @@ pub fn get_lattice() -> lattice::Lattice {
         it_max: it_max,
 
         tag: Array2::<u8>::zeros((nx, ny)),
+        obs: Vec::new(), 
+        bnd: Vec::new(), 
+        ibb: Vec::new(),
         // # Density arrays
         g: Array3::<f64>::zeros((constants::Q, nx, ny)),
         g_eq: Array3::<f64>::zeros((constants::Q, nx, ny)),
@@ -180,6 +137,7 @@ pub fn get_lattice() -> lattice::Lattice {
         u_right: Array2::<f64>::zeros((2, ny)),
         u_top: Array2::<f64>::zeros((2, nx)),
         u_bot: Array2::<f64>::zeros((2, nx)),
+        rho_right: Array1::<f64>::zeros(ny),
 
         // # Physical fields
         rho: Array2::<f64>::ones((nx, ny)),

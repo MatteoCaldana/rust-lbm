@@ -46,10 +46,11 @@ basic-http-server .
 
 ## Motivation
 
-In this small project I had the opportuninty to learn about
-* Rust: a modern high-performace language that is gain a lot of popularity
+In this small project I had the opportuninty to learn about:
+* Rust: a modern high-performace language
 * WASM: a binary instruction format that, albeit some penalty, makes it possible to run performance critical code in a web browser.
 * LBM: an application of Boltzmann particle (microscopic) principles in a lattice grid to simulate computation fluid dynamics (CFD) without directly solving the Navier-Stokes equations.
+* Computational geometry algorithms to raster a polygon
 
 ### Possible Extensions
 Add (experimental) WASM features:

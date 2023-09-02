@@ -1,8 +1,6 @@
 use super::point_in_shape;
 use crate::lbmcore;
 
-use ndarray::*;
-
 pub struct Shape {
     pub pts: Vec<[f32; 2]>,
 }
@@ -35,6 +33,11 @@ pub fn build_square(center: [f32; 2], side: f32) -> Shape {
 }
 
 fn yt_naca4(x: f32, t: f32) -> f32 {
+    assert!(x >= 0.0 && x <= 1.0);
+    // if close to 1.0 we impose 0.0 for symmetry
+    if f32::abs(x - 1.0) < 2.0 * f32::EPSILON {
+        return 0.0;
+    }
     return 5.0
         * t
         * (0.2969 * f32::sqrt(x) - 0.1260 * x - 0.3516 * x * x + 0.2843 * x * x * x
@@ -50,11 +53,11 @@ pub fn build_naca4_sym(xx: &str, npts: usize) -> Shape {
     let n = npts / 2;
     for i in 0..(n + 1) {
         let x = (i as f32) / (n as f32);
-        let y = yt_naca4(x, t);
+        let y = -yt_naca4(x, t);
         shape.pts.push([x, y]);
     }
 
-    for i in 0..n {
+    for i in 0..n-1 {
         shape
             .pts
             .push([shape.pts[n - i - 1][0], -shape.pts[n - i - 1][1]]);
@@ -83,7 +86,6 @@ fn dyc_naca4(x: f32, p: f32, m: f32) -> f32 {
 
 pub fn build_naca4(xx: &str, npts: usize) -> Shape {
     assert!(xx.len() == 4);
-    assert!(npts % 2 == 1);
     let tt: u32 = xx[2..4].parse().unwrap();
     let pp: u32 = xx[1..2].parse().unwrap();
     let mm: u32 = xx[0..1].parse().unwrap();
@@ -101,17 +103,17 @@ pub fn build_naca4(xx: &str, npts: usize) -> Shape {
         let theta = f32::atan(dyc_naca4(x, p, m));
         shape
             .pts
-            .push([x - yt * f32::sin(theta), yc + yt * f32::cos(theta)]);
+            .push([x + yt * f32::sin(theta), yc - yt * f32::cos(theta)]);
     }
 
-    for i in 0..n {
+    for i in 0..n-1 {
         let x = ((n - i - 1) as f32) / (n as f32);
         let yt = yt_naca4(x, t);
         let yc = yc_naca4(x, p, m);
         let theta = f32::atan(dyc_naca4(x, p, m));
         shape
             .pts
-            .push([x + yt * f32::sin(theta), yc - yt * f32::cos(theta)]);
+            .push([x - yt * f32::sin(theta), yc + yt * f32::cos(theta)]);
     }
 
     return shape;
@@ -135,17 +137,15 @@ fn compute_shape_bounding_box(shape: &Shape) -> [[f32; 2]; 2] {
 pub fn intersect_lattice_and_shape(
     lattice: &mut lbmcore::lattice::Lattice,
     shape: &Shape,
-) -> (Vec<[u32; 2]>, Vec<[usize; 3]>, Vec<f64>) {
+)  {
     let bbox = compute_shape_bounding_box(&shape);
-
-    let mut obs: Vec<[u32; 2]> = Vec::new();
-    let mut bnd: Vec<[usize; 3]> = Vec::new();
-    let mut ibb: Vec<f64> = Vec::new();
 
     let dx: f32 = lattice.dx as f32;
     let dy: f32 = lattice.dy as f32;
     let x_min = lattice.x_min as f32;
     let y_min = lattice.y_min as f32;
+
+    let ilen = lattice.obs.len();
 
     for i in 0..lattice.nx {
         for j in 0..lattice.ny {
@@ -157,7 +157,7 @@ pub fn intersect_lattice_and_shape(
             {
                 if point_in_shape::cn_pn_poly(&pt, &shape) != 0 {
                     lattice.tag[[i, j]] = 1;
-                    obs.push([i as u32, j as u32]);
+                    lattice.obs.push([i as u32, j as u32]);
                 }
             }
         }
@@ -165,9 +165,9 @@ pub fn intersect_lattice_and_shape(
 
     let lx = lattice.lx as i32;
     let ly = lattice.ly as i32;
-    for k in 0..obs.len() {
-        let i = obs[k][0] as i32;
-        let j = obs[k][1] as i32;
+    for k in ilen..lattice.obs.len() {
+        let i = lattice.obs[k][0] as i32;
+        let j = lattice.obs[k][1] as i32;
         for q in 1..9 {
             let qb = lbmcore::constants::NS[q];
             let cx = lbmcore::constants::CX[q];
@@ -179,7 +179,7 @@ pub fn intersect_lattice_and_shape(
                 continue;
             }
             if lattice.tag[[ii as usize, jj as usize]] != 0 {
-                bnd.push([ii as usize, jj as usize, qb]);
+                lattice.bnd.push([ii as usize, jj as usize, qb]);
 
                 let pt: [f32; 2] = [x_min + (i as f32) * dx, y_min + (j as f32) * dy];
 
@@ -194,11 +194,10 @@ pub fn intersect_lattice_and_shape(
                 }
                 let cx = lbmcore::constants::CX[qb] * lattice.dx;
                 let cy = lbmcore::constants::CY[qb] * lattice.dy;
-                ibb.push((min_d2 as f64) / f64::sqrt(cx * cx + cy * cy));
+                lattice.ibb.push((min_d2 as f64) / f64::sqrt(cx * cx + cy * cy));
             }
         }
     }
 
-    return (obs, bnd, ibb);
 }
 

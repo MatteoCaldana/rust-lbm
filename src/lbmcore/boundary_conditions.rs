@@ -1,4 +1,5 @@
 use ndarray::*;
+use super::constants;
 
 pub fn zou_he_bottom_left_corner_velocity(
     u: &mut Array3<f64>,
@@ -254,21 +255,70 @@ pub fn zou_he_bottom_wall_velocity(
     }
 }
 
-// pub fn zou_he_right_wall_pressure(lx, ly, u, rho_right, u_right, rho, g){
-//   rho[lx,:] = rho_right[:]
-//   u[1,lx,:] = u_right[1,:]
+pub fn zou_he_right_wall_pressure(
+    lx: usize,
+    u: &mut Array3<f64>,
+    u_right: &Array2<f64>,
+    rho: &mut Array2<f64>,
+    rho_right: &Array1<f64>,
+    g: &mut Array3<f64>,
+) {
+    for j in 0..rho.shape()[1] {
+        rho[[lx, j]] = rho_right[j];
+        u[[1, lx, j]] = u_right[[1, j]];
+        u[[0, lx, j]] = (g[[0, lx, j]]
+            + g[[3, lx, j]]
+            + g[[4, lx, j]]
+            + 2.0 * g[[1, lx, j]]
+            + 2.0 * g[[5, lx, j]]
+            + 2.0 * g[[8, lx, j]])
+            / rho[[lx, j]]
+            - 1.0;
 
-//   u[0,lx,:] = (g[0,lx,:] + g[3,lx,:] + g[4,lx,:] +
-//                2.0*g[1,lx,:] + 2.0*g[5,lx,:] +
-//                2.0*g[8,lx,:])/rho[lx,:] - 1.0
+        g[[2, lx, j]] = g[[1, lx, j]] - (2.0 / 3.0) * rho[[lx, j]] * u[[0, lx, j]];
 
-//   g[2,lx,:] = (g[1,lx,:] - (2.0/3.0)*rho[lx,:]*u[0,lx,:])
+        g[[6, lx, j]] = g[[5, lx, j]] + (1.0 / 2.0) * (g[[3, lx, j]] - g[[4, lx, j]])
+            - (1.0 / 6.0) * rho[[lx, j]] * u[[0, lx, j]]
+            - (1.0 / 2.0) * rho[[lx, j]] * u[[1, lx, j]];
 
-//   g[6,lx,:] = (g[5,lx,:] + (1.0/2.0)*(g[3,lx,:] - g[4,lx,:]) -
-//                (1.0/6.0)*rho[lx,:]*u[0,lx,:] -
-//                (1.0/2.0)*rho[lx,:]*u[1,lx,:] )
+        g[[7, lx, j]] = g[[8, lx, j]]
+            - (1.0 / 2.0) * (g[[3, lx, j]] - g[[4, lx, j]])
+            - (1.0 / 6.0) * rho[[lx, j]] * u[[0, lx, j]]
+            + (1.0 / 2.0) * rho[[lx, j]] * u[[1, lx, j]];
+    }
+}
 
-//   g[7,lx,:] = (g[8,lx,:] - (1.0/2.0)*(g[3,lx,:] - g[4,lx,:]) -
-//                (1.0/6.0)*rho[lx,:]*u[0,lx,:] +
-//                (1.0/2.0)*rho[lx,:]*u[1,lx,:] )
-//   }
+pub fn bounce_back_obstacle(
+    boundary: &Vec<[usize; 3]>,
+    ibb: &Vec<f64>,
+    g_up: &Array3<f64>,
+    g: &mut Array3<f64>,
+) {
+    for k in 0..boundary.len() {
+        let i = boundary[k][0];
+        let j = boundary[k][1];
+        let ii32 = boundary[k][0] as i32;
+        let ji32 = boundary[k][1] as i32;
+        let q = boundary[k][2];
+        let qb = constants::NS[q];
+
+        let cbx = constants::CX[qb] as i32;
+        let cby = constants::CY[qb] as i32;
+        let im = (ii32 + cbx) as usize;
+        let jm = (ji32 + cby) as usize;
+        let imm = (ii32 + 2 * cbx) as usize;
+        let jmm = (ji32 + 2 * cby) as usize;
+
+        let p = ibb[k];
+        let pp = 2.0 * p;
+        if p < 0.5 {
+            g[[qb, i, j]] = p * (pp + 1.0) * g_up[[q, i, j]]
+                + (1.0 + pp) * (1.0 - pp) * g_up[[q, im, jm]]
+                - p * (1.0 - pp) * g_up[[q, imm, jmm]];
+        } else {
+            g[[qb, i, j]] = (1.0 / (p * (pp + 1.0))) * g_up[[q, i, j]]
+                + ((pp - 1.0) / p) * g_up[[qb, i, j]]
+                + ((1.0 - pp) / (1.0 + pp)) * g_up[[qb, im, jm]];
+        }
+    }
+}

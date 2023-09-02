@@ -26,6 +26,9 @@ pub struct Lattice {
 
     // shape tag
     pub tag: Array2<u8>,
+    pub obs: Vec<[u32; 2]>, 
+    pub bnd: Vec<[usize; 3]>, 
+    pub ibb: Vec<f64>,
 
     // # Density arrays
     pub g: Array3<f64>,
@@ -37,6 +40,7 @@ pub struct Lattice {
     pub u_right: Array2<f64>,
     pub u_top: Array2<f64>,
     pub u_bot: Array2<f64>,
+    pub rho_right: Array1<f64>,
 
     // # Physical fields
     pub rho: Array2<f64>,
@@ -156,39 +160,38 @@ pub fn compute_drag_lift(
     return (fx, fy);
 }
 
-fn bounce_back_obstacle(
-    boundary: &Vec<[usize; 3]>,
-    ibb: &Vec<f64>,
-    g_up: &Array3<f64>,
-    g: &mut Array3<f64>,
-    u: &Array3<f64>,
-    tag: &Array2<u8>,
+pub fn init_lattice(lattice: &mut Lattice, set_inlets: fn(&mut Lattice, usize)) {
+    // Initialize and compute first equilibrium
+    set_inlets(&mut *lattice, 0);
+    lattice.rho *= lattice.rho_lbm;
+    compute_equilibrium(&lattice.u, &lattice.rho, &mut lattice.g_eq);
+    lattice.g.assign(&lattice.g_eq);
+}
+
+pub fn step_lattice(
+    lattice: &mut Lattice,
+    it: usize,
+    set_inlets: fn(&mut Lattice, usize),
+    set_bc: fn(&mut Lattice),
+    compute_observables: fn(&mut Lattice),
 ) {
-    for k in 0..boundary.len() {
-        let i = boundary[k][0];
-        let j = boundary[k][1];
-        let ii32 = boundary[k][0] as i32;
-        let ji32 = boundary[k][1] as i32;
-        let q = boundary[k][2];
-        let qb = constants::NS[q];
-
-        let cbx = constants::CX[qb] as i32;
-        let cby = constants::CY[qb] as i32;
-        let im = (ii32 + cbx) as usize;
-        let jm = (ji32 + cby) as usize;
-        let imm = (ii32 + 2 * cbx) as usize;
-        let jmm = (ji32 + 2 * cby) as usize;
-
-        let p = ibb[k];
-        let pp = 2.0 * p;
-        if p < 0.5 {
-            g[[qb, i, j]] = p * (pp + 1.0) * g_up[[q, i, j]]
-                + (1.0 + pp) * (1.0 - pp) * g_up[[q, im, jm]]
-                - p * (1.0 - pp) * g_up[[q, imm, jmm]];
-        } else {
-            g[[qb, i, j]] = (1.0 / (p * (pp + 1.0))) * g_up[[q, i, j]]
-                + ((pp - 1.0) / p) * g_up[[qb, i, j]]
-                + ((1.0 - pp) / (1.0 + pp)) * g_up[[qb, im, jm]];
-        }
-    }
+    set_inlets(&mut *lattice, it);
+    // 2. Compute macroscopic fields
+    compute_macroscopic(&mut lattice.rho, &lattice.g, &mut lattice.u);
+    // 4. Compute equilibrium state
+    compute_equilibrium(&lattice.u, &lattice.rho, &mut lattice.g_eq);
+    // 5. Streaming
+    collision_and_streaming(
+        &mut lattice.g,
+        &lattice.g_eq,
+        &mut lattice.g_up,
+        lattice.om_p_lbm,
+        lattice.om_m_lbm,
+        lattice.lx,
+        lattice.ly,
+    );
+    // 6. Boundary conditions
+    set_bc(&mut *lattice);
+    // 7. compute lift and drag
+    compute_observables(&mut *lattice);
 }
