@@ -1,4 +1,5 @@
-pub mod lbmcore;
+pub mod lbm_core;
+pub mod lbm_app;
 pub mod render;
 pub mod tests;
 pub mod geometry;

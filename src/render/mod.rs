@@ -3,7 +3,7 @@ use ndarray::*;
 use std::fmt;
 
 use crate::geometry;
-use crate::lbmcore::{self, lattice};
+use crate::lbm_core;
 
 #[allow(dead_code)]
 pub enum Plot {
@@ -136,7 +136,7 @@ fn draw_field<T: ndarray::RawData<Elem = f64> + ndarray::Data>(
         }
     }
 
-    let gradient = colorous::TURBO;
+    let gradient = colorous::VIRIDIS;
 
     for i in 0..field.shape()[0] {
         for j in 0..field.shape()[1] {
@@ -160,7 +160,7 @@ fn draw_field<T: ndarray::RawData<Elem = f64> + ndarray::Data>(
     }
 }
 
-pub fn draw(lattice: &lattice::Lattice, shape: &geometry::shape::Shape, settings: &RenderSettings) {
+pub fn draw(lattice: &lbm_core::lattice::Lattice, shape: &geometry::shape::Shape, settings: &RenderSettings) {
     if let Plot::VelocityX = settings.plot_mode {
         draw_field(&lattice.u.index_axis(ndarray::Axis(0), 0), &lattice.tag);
     } else if let Plot::VelocityY = settings.plot_mode {
@@ -209,7 +209,7 @@ pub fn draw_info(it: usize, settings: &RenderSettings) {
                 settings.iter_per_frame
             ),
             &format!(
-                "Showing: {} ([D]ensity, Velocity[X]/[Y]/[N]orm, [W]orticity)",
+                "Showing: {} ([G]rid, [D]ensity, Velocity[X]/[Y]/[N]orm, [W]orticity)",
                 settings.plot_mode
             ),
         ];
@@ -219,7 +219,7 @@ pub fn draw_info(it: usize, settings: &RenderSettings) {
     }
 }
 
-pub fn draw_shape(shape: &geometry::shape::Shape, lattice: &lbmcore::lattice::Lattice) {
+pub fn draw_shape(shape: &geometry::shape::Shape, lattice: &lbm_core::lattice::Lattice) {
     let x_min: f32 = lattice.x_min as f32;
     let x_max: f32 = lattice.x_max as f32;
     let y_min: f32 = lattice.y_min as f32;
@@ -249,7 +249,7 @@ pub fn draw_shape(shape: &geometry::shape::Shape, lattice: &lbmcore::lattice::La
     }
 }
 
-pub fn draw_lattice(lattice: &lbmcore::lattice::Lattice) {
+pub fn draw_lattice(lattice: &lbm_core::lattice::Lattice) {
     let w = screen_width();
     let h = screen_height();
     for i in 0..lattice.nx {

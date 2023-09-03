@@ -1,16 +1,10 @@
-use super::boundary_conditions;
-use super::constants;
-use super::lattice;
+use crate::lbm_core::boundary_conditions;
+use crate::lbm_core::constants;
+use crate::lbm_core::lattice;
 
 use ndarray::*;
 
 pub fn apply_bc(lattice: &mut lattice::Lattice) {
-    boundary_conditions::bounce_back_obstacle(
-        &lattice.bnd,
-        &lattice.ibb,
-        &lattice.g_up,
-        &mut lattice.g,
-    );
     boundary_conditions::zou_he_bottom_wall_velocity(
         &mut lattice.u,
         &lattice.u_bot,
@@ -20,13 +14,6 @@ pub fn apply_bc(lattice: &mut lattice::Lattice) {
     boundary_conditions::zou_he_left_wall_velocity(
         &mut lattice.u,
         &lattice.u_left,
-        &mut lattice.rho,
-        &mut lattice.g,
-    );
-    boundary_conditions::zou_he_right_wall_velocity(
-        lattice.lx,
-        &mut lattice.u,
-        &lattice.u_right,
         &mut lattice.rho,
         &mut lattice.g,
     );
@@ -73,19 +60,22 @@ pub fn apply_bc(lattice: &mut lattice::Lattice) {
 
 pub fn get_lattice() -> lattice::Lattice {
     let re_lbm: f64 = 100.0;
-    let npts: usize = 100;
-    let u_lbm: f64 = 0.05;
+    let npts: usize = 50;
+    let u_lbm: f64 = 0.1;
     let rho_lbm: f64 = 1.0;
-    let t_max: f64 = 0.02;
+    let t_max: f64 = 20.0;
     let x_min: f64 = -0.2;
-    let x_max: f64 = 2.0;
+    let x_max: f64 = 1.0;
     let y_min: f64 = -0.2;
-    let y_max: f64 = 0.21;
+    let y_max: f64 = 0.2;
     let c_s: f64 = 1.0 / f64::sqrt(3.0);
     let ny: usize = npts;
-    let nu_lbm: f64 = u_lbm * (npts as f64) / re_lbm;
-    let tau_lbm: f64 = 0.5 + nu_lbm / (c_s * c_s);
-    let dt: f64 = re_lbm * nu_lbm / ((npts * npts) as f64);
+
+    let u_avg = 2.0 * u_lbm / 3.0;
+    let nu_lbm = u_avg * (npts as f64) / re_lbm;
+    let tau_lbm = 0.5 + nu_lbm / c_s / c_s;
+    let dt = re_lbm * nu_lbm / ((npts * npts) as f64);
+
     let dy: f64 = (y_max - y_min) / ((ny - 1) as f64);
     let nx: usize = f64::round((ny as f64) * (x_max - x_min) / (y_max - y_min)) as usize;
     let dx: f64 = (x_max - x_min) / ((nx - 1) as f64);
@@ -107,6 +97,8 @@ pub fn get_lattice() -> lattice::Lattice {
         u_lbm: u_lbm,
         sigma: sigma,
         rho_lbm: rho_lbm,
+        tau_p_lbm: tau_p_lbm,
+        tau_m_lbm: tau_m_lbm,
         om_p_lbm: om_p_lbm,
         om_m_lbm: om_m_lbm,
 
@@ -120,6 +112,7 @@ pub fn get_lattice() -> lattice::Lattice {
 
         dx: dx,
         dy: dy,
+        dt: dt,
 
         lx: lx,
         ly: ly,

@@ -1,6 +1,6 @@
 
 # Lattice Boltzmann method in Rust with WASM translation
-![RustCavityBenchmark badge](https://github.com/MatteoCaldana/rust-lbm/workflows/RustCavityBenchmark/badge.svg)
+![RustPhysicsBenchmark badge](https://github.com/MatteoCaldana/rust-lbm/workflows/RustPhysicsBenchmark/badge.svg)
 ![DeployWASM badge](https://github.com/MatteoCaldana/rust-lbm/workflows/DeployWASM/badge.svg)
 
 <h3 align="center">
@@ -21,7 +21,9 @@ cargo run --release
 This will execute the [visualization demo](./src/bin/main.rs) locally.
 
 ### Tests
-To verify the correctness of the code we compare the velocity field of the lid-driven cavity benchmark at the center of the domain with reference data from ["U. Ghia, K. N. Ghia, C. T. Shin, High-Re solutions for incompressible flow using Navier-Stokes equations and multigrid method"](https://www.sciencedirect.com/science/article/pii/0021999182900584).
+To verify the correctness of the code we use the following unit tests:
+1. Compare the velocity field of the lid-driven cavity benchmark at the center of the domain with reference data from ["U. Ghia, K. N. Ghia, C. T. Shin, High-Re solutions for incompressible flow using Navier-Stokes equations and multigrid method"](https://www.sciencedirect.com/science/article/pii/0021999182900584).
+2. Run a channel flow simulaiton at low Reynolds (Poiseuille flow) and check the velocity profile at the outlet.
 
 ```bash
 cargo test --release

@@ -1,6 +1,6 @@
-use super::lattice;
-use super::constants;
-use super::boundary_conditions;
+use crate::lbm_core::lattice;
+use crate::lbm_core::constants;
+use crate::lbm_core::boundary_conditions;
 
 use ndarray::*;
 
@@ -105,6 +105,8 @@ pub fn get_lattice() -> lattice::Lattice {
         u_lbm: u_lbm,
         sigma: sigma,
         rho_lbm: rho_lbm,
+        tau_p_lbm: tau_p_lbm,
+        tau_m_lbm: tau_m_lbm,
         om_p_lbm: om_p_lbm,
         om_m_lbm: om_m_lbm,
 
@@ -118,6 +120,7 @@ pub fn get_lattice() -> lattice::Lattice {
 
         dx: dx,
         dy: dy,
+        dt: dt,
 
         lx: lx,
         ly: ly,

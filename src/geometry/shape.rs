@@ -1,5 +1,5 @@
 use super::point_in_shape;
-use crate::lbmcore;
+use crate::lbm_core;
 
 pub struct Shape {
     pub pts: Vec<[f32; 2]>,
@@ -135,7 +135,7 @@ fn compute_shape_bounding_box(shape: &Shape) -> [[f32; 2]; 2] {
 }
 
 pub fn intersect_lattice_and_shape(
-    lattice: &mut lbmcore::lattice::Lattice,
+    lattice: &mut lbm_core::lattice::Lattice,
     shape: &Shape,
 )  {
     let bbox = compute_shape_bounding_box(&shape);
@@ -169,9 +169,9 @@ pub fn intersect_lattice_and_shape(
         let i = lattice.obs[k][0] as i32;
         let j = lattice.obs[k][1] as i32;
         for q in 1..9 {
-            let qb = lbmcore::constants::NS[q];
-            let cx = lbmcore::constants::CX[q];
-            let cy = lbmcore::constants::CY[q];
+            let qb = lbm_core::constants::NS[q];
+            let cx = lbm_core::constants::CX[q];
+            let cy = lbm_core::constants::CY[q];
             let ii = i + (cx as i32);
             let jj = j + (cy as i32);
 
@@ -192,8 +192,8 @@ pub fn intersect_lattice_and_shape(
                         min_d2 = d2;
                     }
                 }
-                let cx = lbmcore::constants::CX[qb] * lattice.dx;
-                let cy = lbmcore::constants::CY[qb] * lattice.dy;
+                let cx = lbm_core::constants::CX[qb] * lattice.dx;
+                let cy = lbm_core::constants::CY[qb] * lattice.dy;
                 lattice.ibb.push((min_d2 as f64) / f64::sqrt(cx * cx + cy * cy));
             }
         }

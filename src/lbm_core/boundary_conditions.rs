@@ -1,5 +1,5 @@
-use ndarray::*;
 use super::constants;
+use ndarray::*;
 
 pub fn zou_he_bottom_left_corner_velocity(
     u: &mut Array3<f64>,
@@ -294,31 +294,41 @@ pub fn bounce_back_obstacle(
     g_up: &Array3<f64>,
     g: &mut Array3<f64>,
 ) {
-    for k in 0..boundary.len() {
-        let i = boundary[k][0];
-        let j = boundary[k][1];
-        let ii32 = boundary[k][0] as i32;
-        let ji32 = boundary[k][1] as i32;
-        let q = boundary[k][2];
-        let qb = constants::NS[q];
+    if false { // interpolated bounce back
+        for k in 0..boundary.len() {
+            let i = boundary[k][0];
+            let j = boundary[k][1];
+            let ii32 = boundary[k][0] as i32;
+            let ji32 = boundary[k][1] as i32;
+            let q = boundary[k][2];
+            let qb = constants::NS[q];
 
-        let cbx = constants::CX[qb] as i32;
-        let cby = constants::CY[qb] as i32;
-        let im = (ii32 + cbx) as usize;
-        let jm = (ji32 + cby) as usize;
-        let imm = (ii32 + 2 * cbx) as usize;
-        let jmm = (ji32 + 2 * cby) as usize;
+            let cbx = constants::CX[qb] as i32;
+            let cby = constants::CY[qb] as i32;
+            let im = (ii32 + cbx) as usize;
+            let jm = (ji32 + cby) as usize;
+            let imm = (ii32 + 2 * cbx) as usize;
+            let jmm = (ji32 + 2 * cby) as usize;
 
-        let p = ibb[k];
-        let pp = 2.0 * p;
-        if p < 0.5 {
-            g[[qb, i, j]] = p * (pp + 1.0) * g_up[[q, i, j]]
-                + (1.0 + pp) * (1.0 - pp) * g_up[[q, im, jm]]
-                - p * (1.0 - pp) * g_up[[q, imm, jmm]];
-        } else {
-            g[[qb, i, j]] = (1.0 / (p * (pp + 1.0))) * g_up[[q, i, j]]
-                + ((pp - 1.0) / p) * g_up[[qb, i, j]]
-                + ((1.0 - pp) / (1.0 + pp)) * g_up[[qb, im, jm]];
+            let p = ibb[k];
+            let pp = 2.0 * p;
+            if p < 0.5 {
+                g[[qb, i, j]] = p * (pp + 1.0) * g_up[[q, i, j]]
+                    + (1.0 + pp) * (1.0 - pp) * g_up[[q, im, jm]]
+                    - p * (1.0 - pp) * g_up[[q, imm, jmm]];
+            } else {
+                g[[qb, i, j]] = (1.0 / (p * (pp + 1.0))) * g_up[[q, i, j]]
+                    + ((pp - 1.0) / p) * g_up[[qb, i, j]]
+                    + ((1.0 - pp) / (1.0 + pp)) * g_up[[qb, im, jm]];
+            }
+        }
+    } else { // naive bounce back
+        for k in 0..boundary.len() {
+            let i = boundary[k][0];
+            let j = boundary[k][1];
+            let q = boundary[k][2];
+            let qb = constants::NS[q];
+            g[[qb, i, j]] = g_up[[q, i, j]];
         }
     }
 }

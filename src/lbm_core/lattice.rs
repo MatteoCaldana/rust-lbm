@@ -5,6 +5,8 @@ use super::constants;
 pub struct Lattice {
     pub u_lbm: f64,
     pub sigma: f64,
+    pub tau_p_lbm: f64,
+    pub tau_m_lbm: f64,
     pub rho_lbm: f64,
     pub om_p_lbm: f64,
     pub om_m_lbm: f64,
@@ -19,6 +21,7 @@ pub struct Lattice {
 
     pub dx: f64,
     pub dy: f64,
+    pub dt: f64,
 
     pub lx: usize,
     pub ly: usize,
