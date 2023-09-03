@@ -1,3 +1,4 @@
+use crate::geometry;
 use crate::lbm_core::boundary_conditions;
 use crate::lbm_core::constants;
 use crate::lbm_core::lattice;
@@ -66,7 +67,7 @@ pub fn apply_bc(lattice: &mut lattice::Lattice) {
 
 pub fn get_lattice() -> lattice::Lattice {
     let re_lbm: f64 = 100.0;
-    let npts: usize = 100;
+    let npts: usize = 70;
     let u_lbm: f64 = 0.05;
     let rho_lbm: f64 = 1.0;
     let t_max: f64 = 0.02;
@@ -78,8 +79,8 @@ pub fn get_lattice() -> lattice::Lattice {
     let ny: usize = npts;
 
     let u_avg = 2.0 * u_lbm / 3.0;
-    let r_cyl = 0.1;
-    let d_lbm = f64::floor((ny as f64) * r_cyl / (y_max - y_min));
+    let d_cyl = 0.1;
+    let d_lbm = f64::floor((ny as f64) * d_cyl / (y_max - y_min));
     let nu_lbm = u_avg * d_lbm / re_lbm;
     let tau_lbm = 0.5 + nu_lbm / c_s / c_s;
     let dt = re_lbm * nu_lbm / d_lbm / d_lbm;
@@ -100,6 +101,17 @@ pub fn get_lattice() -> lattice::Lattice {
     let om_p_lbm: f64 = 1.0 / tau_p_lbm;
     let om_m_lbm: f64 = 1.0 / tau_m_lbm;
     //let om_lbm: f64 = 1.0 / tau_lbm;
+
+    let circle = geometry::shape::build_circle([0.0, 0.0], (d_cyl / 2.0) as f32, 200);
+    let (obs, bnd, ibb, tag) = geometry::shape::intersect_lattice_and_shape(
+        x_min as f32,
+        y_min as f32,
+        dx as f32,
+        dy as f32,
+        nx,
+        ny,
+        &circle,
+    );
 
     return lattice::Lattice {
         u_lbm: u_lbm,
@@ -126,10 +138,11 @@ pub fn get_lattice() -> lattice::Lattice {
         ly: ly,
         it_max: it_max,
 
-        tag: Array2::<u8>::zeros((nx, ny)),
-        obs: Vec::new(),
-        bnd: Vec::new(),
-        ibb: Vec::new(),
+        obstables: vec![circle],
+        tag: tag,
+        obs: obs,
+        bnd: bnd,
+        ibb: ibb,
         // # Density arrays
         g: Array3::<f64>::zeros((constants::Q, nx, ny)),
         g_eq: Array3::<f64>::zeros((constants::Q, nx, ny)),

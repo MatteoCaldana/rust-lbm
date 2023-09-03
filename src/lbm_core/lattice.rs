@@ -1,5 +1,6 @@
 use ndarray::*;
 
+use crate::geometry::shape;
 use super::constants;
 
 pub struct Lattice {
@@ -27,7 +28,8 @@ pub struct Lattice {
     pub ly: usize,
     pub it_max: usize,
 
-    // shape tag
+    // Obstacles in the domain
+    pub obstables: Vec<shape::Shape>,
     pub tag: Array2<u8>,
     pub obs: Vec<[u32; 2]>, 
     pub bnd: Vec<[usize; 3]>, 

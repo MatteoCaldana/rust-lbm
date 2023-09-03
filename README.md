@@ -24,6 +24,7 @@ This will execute the [visualization demo](./src/bin/main.rs) locally.
 To verify the correctness of the code we use the following unit tests:
 1. Compare the velocity field of the lid-driven cavity benchmark at the center of the domain with reference data from ["U. Ghia, K. N. Ghia, C. T. Shin, High-Re solutions for incompressible flow using Navier-Stokes equations and multigrid method"](https://www.sciencedirect.com/science/article/pii/0021999182900584).
 2. Run a channel flow simulaiton at low Reynolds (Poiseuille flow) and check the velocity profile at the outlet.
+3. **[WIP]** Computation of drag and lift in the Turek cylinder benchmark CFD case is described in ["Schafer, M., Turek, S. Benchmark Computations of Laminar Flow Around a Cylinder"](https://link.springer.com/chapter/10.1007/978-3-322-89849-4_39).
 
 ```bash
 cargo test --release
@@ -58,9 +59,8 @@ In this small project I had the opportuninty to learn about:
 Add (experimental) WASM features:
 * Use SIMD instructions
 * Parition the lattice and use threads to parallelize (spawing a thread is very expensive in WASM, must be done carefully)
-Extend LBM:
-* Flow around cylinder: need support for shapes, compute lift and drag
 
 ## References
 * https://github.com/ndbaker1/bloe
 * https://github.com/jviquerat/lbm
+* https://en.wikipedia.org/wiki/NACA_airfoil

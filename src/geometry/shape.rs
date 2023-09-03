@@ -1,6 +1,8 @@
 use super::point_in_shape;
 use crate::lbm_core;
 
+use ndarray::*;
+
 pub struct Shape {
     pub pts: Vec<[f32; 2]>,
 }
@@ -57,7 +59,7 @@ pub fn build_naca4_sym(xx: &str, npts: usize) -> Shape {
         shape.pts.push([x, y]);
     }
 
-    for i in 0..n-1 {
+    for i in 0..n - 1 {
         shape
             .pts
             .push([shape.pts[n - i - 1][0], -shape.pts[n - i - 1][1]]);
@@ -106,7 +108,7 @@ pub fn build_naca4(xx: &str, npts: usize) -> Shape {
             .push([x + yt * f32::sin(theta), yc - yt * f32::cos(theta)]);
     }
 
-    for i in 0..n-1 {
+    for i in 0..n - 1 {
         let x = ((n - i - 1) as f32) / (n as f32);
         let yt = yt_naca4(x, t);
         let yc = yc_naca4(x, p, m);
@@ -135,20 +137,30 @@ fn compute_shape_bounding_box(shape: &Shape) -> [[f32; 2]; 2] {
 }
 
 pub fn intersect_lattice_and_shape(
-    lattice: &mut lbm_core::lattice::Lattice,
+    x_min: f32,
+    y_min: f32,
+    dx: f32,
+    dy: f32,
+    nx: usize,
+    ny: usize,
     shape: &Shape,
-)  {
+) -> (
+    Vec<[u32; 2]>,
+    Vec<[usize; 3]>,
+    Vec<f64>,
+    ArrayBase<OwnedRepr<u8>, Dim<[usize; 2]>>,
+) {
+    let mut obs: Vec<[u32; 2]> = Vec::new();
+    let mut bnd: Vec<[usize; 3]> = Vec::new();
+    let mut ibb: Vec<f64> = Vec::new();
+    let mut tag: ArrayBase<OwnedRepr<u8>, Dim<[usize; 2]>> = Array2::<u8>::zeros((nx, ny));
+
     let bbox = compute_shape_bounding_box(&shape);
 
-    let dx: f32 = lattice.dx as f32;
-    let dy: f32 = lattice.dy as f32;
-    let x_min = lattice.x_min as f32;
-    let y_min = lattice.y_min as f32;
+    let ilen = obs.len();
 
-    let ilen = lattice.obs.len();
-
-    for i in 0..lattice.nx {
-        for j in 0..lattice.ny {
+    for i in 0..nx {
+        for j in 0..ny {
             let pt: [f32; 2] = [x_min + (i as f32) * dx, y_min + (j as f32) * dy];
             if (pt[0] > bbox[0][0])
                 && (pt[0] < bbox[1][0])
@@ -156,18 +168,18 @@ pub fn intersect_lattice_and_shape(
                 && (pt[1] < bbox[1][1])
             {
                 if point_in_shape::cn_pn_poly(&pt, &shape) != 0 {
-                    lattice.tag[[i, j]] = 1;
-                    lattice.obs.push([i as u32, j as u32]);
+                    tag[[i, j]] = 1;
+                    obs.push([i as u32, j as u32]);
                 }
             }
         }
     }
 
-    let lx = lattice.lx as i32;
-    let ly = lattice.ly as i32;
-    for k in ilen..lattice.obs.len() {
-        let i = lattice.obs[k][0] as i32;
-        let j = lattice.obs[k][1] as i32;
+    let lx = (nx - 1) as i32;
+    let ly = (ny - 1) as i32;
+    for k in ilen..obs.len() {
+        let i = obs[k][0] as i32;
+        let j = obs[k][1] as i32;
         for q in 1..9 {
             let qb = lbm_core::constants::NS[q];
             let cx = lbm_core::constants::CX[q];
@@ -178,8 +190,8 @@ pub fn intersect_lattice_and_shape(
             if (ii > lx) || (jj > ly) || (ii < 0) || (jj < 0) {
                 continue;
             }
-            if lattice.tag[[ii as usize, jj as usize]] != 0 {
-                lattice.bnd.push([ii as usize, jj as usize, qb]);
+            if tag[[ii as usize, jj as usize]] != 0 {
+                bnd.push([ii as usize, jj as usize, qb]);
 
                 let pt: [f32; 2] = [x_min + (i as f32) * dx, y_min + (j as f32) * dy];
 
@@ -192,12 +204,36 @@ pub fn intersect_lattice_and_shape(
                         min_d2 = d2;
                     }
                 }
-                let cx = lbm_core::constants::CX[qb] * lattice.dx;
-                let cy = lbm_core::constants::CY[qb] * lattice.dy;
-                lattice.ibb.push((min_d2 as f64) / f64::sqrt(cx * cx + cy * cy));
+                let cx = (lbm_core::constants::CX[qb] as f32) * dx;
+                let cy = (lbm_core::constants::CY[qb] as f32) * dy;
+                ibb.push((min_d2 / f32::sqrt(cx * cx + cy * cy)) as f64);
             }
         }
     }
-
+    return (obs, bnd, ibb, tag);
 }
 
+pub fn rotate(degrees: f32, offset: &[f32; 2], shape: &mut Shape) {
+    let phi = degrees * std::f32::consts::PI / 180.;
+    let rot: [[f32; 2]; 2] = [
+        [f32::cos(phi), f32::sin(phi)],
+        [-f32::sin(phi), f32::cos(phi)],
+    ];
+    for i in 0..shape.pts.len() {
+        let tmp = [shape.pts[i][0] - offset[0], shape.pts[i][1] - offset[1]];
+        for j in 0..2 {
+            shape.pts[i][j] = tmp[0] * rot[j][0] + tmp[1] * rot[j][1] + offset[j];
+        }
+    }
+}
+
+pub fn barycenter(shape: &Shape) -> [f32; 2] {
+    let mut r = [0.0f32, 0.];
+    for i in 0..shape.pts.len() {
+        r[0] += shape.pts[i][0];
+        r[1] += shape.pts[i][1];
+    }
+    r[0] /= shape.pts.len() as f32;
+    r[1] /= shape.pts.len() as f32;
+    return r;
+}

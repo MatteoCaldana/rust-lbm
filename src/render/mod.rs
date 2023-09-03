@@ -45,7 +45,7 @@ pub fn handle_event(render_settings: &mut RenderSettings) {
         render_settings.show_info = !render_settings.show_info;
     }
     // camera pan
-    const PAN: f32 = 0.1;
+    const PAN: f32 = 0.05;
     if is_key_down(KeyCode::Up) {
         render_settings.target.1 += PAN / render_settings.zoom;
     }
@@ -160,7 +160,7 @@ fn draw_field<T: ndarray::RawData<Elem = f64> + ndarray::Data>(
     }
 }
 
-pub fn draw(lattice: &lbm_core::lattice::Lattice, shape: &geometry::shape::Shape, settings: &RenderSettings) {
+pub fn draw(lattice: &lbm_core::lattice::Lattice, settings: &RenderSettings) {
     if let Plot::VelocityX = settings.plot_mode {
         draw_field(&lattice.u.index_axis(ndarray::Axis(0), 0), &lattice.tag);
     } else if let Plot::VelocityY = settings.plot_mode {
@@ -189,7 +189,7 @@ pub fn draw(lattice: &lbm_core::lattice::Lattice, shape: &geometry::shape::Shape
         draw_field(&lattice.rho, &lattice.tag);
     } else if let Plot::Grid = settings.plot_mode {
         draw_lattice(&lattice);
-        draw_shape(&shape, &lattice);
+        draw_shape(&lattice);
     } else {
         assert!(
             false,
@@ -202,7 +202,7 @@ pub fn draw_info(it: usize, settings: &RenderSettings) {
     const FONT_SIZE: f32 = 25.;
     if settings.show_info {
         let infos = [
-            "Toggle [C]ommands. [R]estart. Arrows to move around, scroll to zoom.",
+            "Toggle [C]ommands. [R]estart. [Up]/[Down]/[Left]/[Right] to pan camera. [Scroll] to zoom.",
             &format!("Iteration: {:>6}, FPS: {:>3}", it, get_fps()),
             &format!(
                 "Iter/frame: {} ([PageUp]/[PageDown] to change)",
@@ -219,7 +219,7 @@ pub fn draw_info(it: usize, settings: &RenderSettings) {
     }
 }
 
-pub fn draw_shape(shape: &geometry::shape::Shape, lattice: &lbm_core::lattice::Lattice) {
+pub fn draw_shape(lattice: &lbm_core::lattice::Lattice) {
     let x_min: f32 = lattice.x_min as f32;
     let x_max: f32 = lattice.x_max as f32;
     let y_min: f32 = lattice.y_min as f32;
@@ -229,23 +229,26 @@ pub fn draw_shape(shape: &geometry::shape::Shape, lattice: &lbm_core::lattice::L
     let h = screen_height();
     let x_tr = w / (x_max - x_min);
     let y_tr = h / (y_max - y_min);
-    for i in 0..shape.pts.len() - 1 {
-        let x1 = x_tr * (shape.pts[i][0] - x_min);
-        let x2 = x_tr * (shape.pts[i + 1][0] - x_min);
-        let y1 = y_tr * (shape.pts[i][1] - y_min);
-        let y2 = y_tr * (shape.pts[i + 1][1] - y_min);
+    for k in 0..lattice.obstables.len() {
+        let shape = &lattice.obstables[k];
+        for i in 0..shape.pts.len() - 1 {
+            let x1 = x_tr * (shape.pts[i][0] - x_min);
+            let x2 = x_tr * (shape.pts[i + 1][0] - x_min);
+            let y1 = y_tr * (shape.pts[i][1] - y_min);
+            let y2 = y_tr * (shape.pts[i + 1][1] - y_min);
+            draw_line(x1, y1, x2, y2, 1.0, WHITE);
+        }
+        let x1 = x_tr * (shape.pts[shape.pts.len() - 1][0] - x_min);
+        let x2 = x_tr * (shape.pts[0][0] - x_min);
+        let y1 = y_tr * (shape.pts[shape.pts.len() - 1][1] - y_min);
+        let y2 = y_tr * (shape.pts[0][1] - y_min);
         draw_line(x1, y1, x2, y2, 1.0, WHITE);
-    }
-    let x1 = x_tr * (shape.pts[shape.pts.len() - 1][0] - x_min);
-    let x2 = x_tr * (shape.pts[0][0] - x_min);
-    let y1 = y_tr * (shape.pts[shape.pts.len() - 1][1] - y_min);
-    let y2 = y_tr * (shape.pts[0][1] - y_min);
-    draw_line(x1, y1, x2, y2, 1.0, WHITE);
 
-    for k in 0..lattice.obs.len() {
-        let x = (lattice.obs[k][0] as f32) * (lattice.dx as f32);
-        let y = (lattice.obs[k][1] as f32) * (lattice.dy as f32);
-        draw_circle(x_tr * x, y_tr * y, 1.0, RED);
+        for k in 0..lattice.obs.len() {
+            let x = (lattice.obs[k][0] as f32) * (lattice.dx as f32);
+            let y = (lattice.obs[k][1] as f32) * (lattice.dy as f32);
+            draw_circle(x_tr * x, y_tr * y, 1.0, RED);
+        }
     }
 }
 
@@ -260,4 +263,41 @@ pub fn draw_lattice(lattice: &lbm_core::lattice::Lattice) {
         let y = h * (j as f32) / ((lattice.ny - 1) as f32);
         draw_line(0.0, y, w, y, 0.5, GRAY);
     }
+}
+
+pub fn draw_drag_lift(drag: f32, lift: f32, lattice: &lbm_core::lattice::Lattice) {
+    const DL_FACTOR: f32 = 3.0;
+    // TODO: compute once for all
+    let barycenter = geometry::shape::barycenter(&lattice.obstables[0]);
+
+    let x_min: f32 = lattice.x_min as f32;
+    let x_max: f32 = lattice.x_max as f32;
+    let y_min: f32 = lattice.y_min as f32;
+    let y_max: f32 = lattice.y_max as f32;
+
+    let w = screen_width();
+    let h = screen_height();
+    let x_tr = w / (x_max - x_min);
+    let y_tr = h / (y_max - y_min);
+
+    let barycenter_screen = [
+        x_tr * (barycenter[0] - x_min),
+        y_tr * (barycenter[1] - y_min),
+    ];
+    draw_line(
+        barycenter_screen[0],
+        barycenter_screen[1],
+        barycenter_screen[0],
+        barycenter_screen[1] - lift * DL_FACTOR,
+        2.0,
+        RED,
+    );
+    draw_line(
+        barycenter_screen[0],
+        barycenter_screen[1],
+        barycenter_screen[0] - drag * DL_FACTOR,
+        barycenter_screen[1],
+        2.0,
+        RED,
+    );
 }

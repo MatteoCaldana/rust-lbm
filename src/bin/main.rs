@@ -13,32 +13,32 @@ async fn main() {
         zoom: 2.0 / screen_width(),
     };
 
-    let circle = rust_lbm::geometry::shape::build_circle([0.0, 0.0], 0.1, 200);
-    //let naca15 = rust_lbm::geometry::shape::build_naca4_sym("15", 1000);
-    //let naca6409 = rust_lbm::geometry::shape::build_naca4("6409", 1001);
-    let shape = &circle;
-
-    let mut lattice = rust_lbm::lbm_app::turek::get_lattice();
-    rust_lbm::geometry::shape::intersect_lattice_and_shape(&mut lattice, shape);
+    let mut lattice = rust_lbm::lbm_app::web::get_lattice();
     //
     let mut it: usize = 0;
     println!("u_lbm: {}", lattice.u_lbm);
-    println!("nx/ny: {}, {}", lattice.nx, lattice.ny);
+    println!(
+        "nx/ny: {}, {}, {}",
+        lattice.nx,
+        lattice.ny,
+        lattice.nx * lattice.ny
+    );
     println!("dx/dy: {}, {}, {}", lattice.dx, lattice.dy, lattice.dt);
     println!("tau:   {}, {}", lattice.tau_p_lbm, lattice.tau_m_lbm);
     println!("om:    {}, {}", lattice.om_p_lbm, lattice.om_m_lbm);
+
+    let (mut drag, mut lift) = (0., 0.);
 
     loop {
         println!("time: {}", lattice.dt * (it as f64));
         rust_lbm::render::handle_event(&mut render_settings);
         // check if need to restart
         if render_settings.should_restart {
-            lattice = rust_lbm::lbm_app::turek::get_lattice();
+            lattice = rust_lbm::lbm_app::web::get_lattice();
             rust_lbm::lbm_core::lattice::init_lattice(
                 &mut lattice,
                 rust_lbm::lbm_app::poiseuille::set_inlets,
             );
-            rust_lbm::geometry::shape::intersect_lattice_and_shape(&mut lattice, shape);
             it = 0;
             render_settings.should_restart = false;
         }
@@ -50,12 +50,19 @@ async fn main() {
                     &mut lattice,
                     it,
                     rust_lbm::lbm_app::poiseuille::set_inlets,
-                    rust_lbm::lbm_app::turek::apply_bc,
+                    rust_lbm::lbm_app::web::apply_bc,
                     |_| (),
                 );
                 it = it + 1;
             }
-            //TODO: compute drag and lift
+            (drag, lift) = rust_lbm::lbm_core::lattice::compute_drag_lift(
+                &lattice.bnd,
+                &lattice.g_up,
+                &lattice.g,
+                lattice.rho_lbm,
+                2.0 * lattice.u_lbm / 3.0,
+                (lattice.ny as f64) * 0.1 / (lattice.y_max - lattice.y_min),
+            );
         }
 
         // draw physical
@@ -67,7 +74,11 @@ async fn main() {
             ),
             ..Default::default()
         });
-        rust_lbm::render::draw(&lattice, shape, &render_settings);
+        rust_lbm::render::draw(&lattice, &render_settings);
+        if let rust_lbm::render::Plot::Grid = render_settings.plot_mode {
+        } else {
+            rust_lbm::render::draw_drag_lift(drag as f32, lift as f32, &lattice);
+        }
 
         // draw text
         set_default_camera();

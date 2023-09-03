@@ -118,6 +118,7 @@ pub fn get_lattice() -> lattice::Lattice {
         ly: ly,
         it_max: it_max,
 
+        obstables: Vec::new(),
         tag: Array2::<u8>::zeros((nx, ny)),
         obs: Vec::new(),
         bnd: Vec::new(),
