@@ -38,7 +38,7 @@ cargo build --target wasm32-unknown-unknown --release
 ```
 This will produce `.wasm` file in `target/debug/wasm32-unknown-unknown/main.wasm` or in `target/release/wasm32-unknown-unknown/main.wasm` if built with `--release`. Copy it into the `pages` folder.
 ```bash
-cp target/release/wasm32-unknown-unknown/main.wasm pages
+cp target/wasm32-unknown-unknown/release/main.wasm pages
 ```
 One of the ways to then server static `.wasm` and `.html` (blocked by CORS otherwise):
 ```bash
