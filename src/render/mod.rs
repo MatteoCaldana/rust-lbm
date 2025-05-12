@@ -202,7 +202,9 @@ pub fn draw_info(it: usize, settings: &RenderSettings) {
     const FONT_SIZE: f32 = 25.;
     if settings.show_info {
         let infos = [
-            "Toggle [C]ommands. [R]estart. [Up]/[Down]/[Left]/[Right] to pan camera. [Scroll] to zoom.",
+            "Toggle [C]ommands. [R]estart. ",
+            "[Up]/[Down]/[Left]/[Right] to pan camera. ",
+            "[Scroll] to zoom.",
             &format!("Iteration: {:>6}, FPS: {:>3}", it, get_fps()),
             &format!(
                 "Iter/frame: {} ([PageUp]/[PageDown] to change)",
